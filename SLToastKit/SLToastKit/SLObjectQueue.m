@@ -40,7 +40,7 @@
 {
     SLObjectQueue *other = [[SLObjectQueue<NSObject<NSCopying> *> alloc] init];
 
-    [_store enumerateObjectsUsingBlock:^(id<NSObject,NSCopying> _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+    [self.store enumerateObjectsUsingBlock:^(id<NSObject,NSCopying> _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         if ([obj conformsToProtocol:@protocol(NSCopying)]
             && [obj respondsToSelector:@selector(copyWithZone:)])
         {
@@ -60,13 +60,21 @@
 
 - (nullable id)pop
 {
-    SLQueueStoreType *store = _store;
-    if (!store.count)
+    SLQueueStoreType *store = self.store;
+    if (!store)
         return nil;
+
     id object = nil;
-    @synchronized (store) {
-        object = [store firstObject];
-        [store removeObjectAtIndex:0];
+    @synchronized (self) {
+        if (!store.count)
+            return nil;
+        @try {
+            object = [store firstObject];
+            if (object)
+                [store removeObjectAtIndex:0];
+        } @catch (NSException *exception) {
+            NSLog(@"Caught exception popping a queue item: %@", exception);
+        }
     }
     return object;
 }
@@ -75,12 +83,12 @@
 {
     if (!object)
         return;
-    [_store addObject:object];
+    [self.store addObject:object];
 }
 
 - (nullable id)peekNext
 {
-    SLQueueStoreType *store = _store;
+    SLQueueStoreType *store = self.store;
     if (!store.count)
         return nil;
     return [store firstObject];
@@ -88,45 +96,47 @@
 
 - (nullable id)objectAtIndex:(NSUInteger)index
 {
-    if (_store.count > index)
-        return _store[index];
+    if (self.store.count > index)
+        return self.store[index];
     return nil;
 }
 
 - (NSUInteger)countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(__unsafe_unretained id  _Nonnull *)buffer count:(NSUInteger)len
 {
-    return [_store countByEnumeratingWithState:state objects:buffer count:len];
+    return [self.store countByEnumeratingWithState:state objects:buffer count:len];
 }
 
 - (void)enumerateObjectsWithOptions:(NSEnumerationOptions)opts usingBlock:(void (^)(NSObject<NSCopying> * _Nonnull, NSUInteger, BOOL * _Nonnull))block
 {
     if (!block)
         return;
-    [_store enumerateObjectsWithOptions:opts usingBlock:block];
+    [self.store enumerateObjectsWithOptions:opts usingBlock:block];
 }
 
 - (void)enumerateObjectsUsingBlock:(void (^)(NSObject<NSCopying> * _Nonnull, NSUInteger, BOOL * _Nonnull))block
 {
     if (!block)
         return;
-    [_store enumerateObjectsUsingBlock:block];
+    [self.store enumerateObjectsUsingBlock:block];
 }
 
 - (NSUInteger)count
 {
-    return _store.count;
+    return self.store.count;
 }
 
 - (BOOL)containsObject:(nonnull id)object
 {
-    return [_store containsObject:object];
+    if (!object)
+        return NO;
+    return [self.store containsObject:object];
 }
 
 - (NSUInteger)indexOfObject:(nonnull id)object
 {
     if (!object)
         return NSNotFound;
-    return [_store indexOfObject:object];
+    return [self.store indexOfObject:object];
 }
 
 - (BOOL)removeObject:(nonnull id)object
@@ -134,7 +144,7 @@
     NSUInteger index = [self indexOfObject:object];
     if (index == NSNotFound || index > self.count)
         return NO;
-    [_store removeObjectAtIndex:index];
+    [self.store removeObjectAtIndex:index];
     return YES;
 }
 

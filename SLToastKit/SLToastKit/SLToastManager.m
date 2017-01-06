@@ -201,9 +201,21 @@
 
 - (nullable SLToast *)pullNext
 {
-    SLToast *toast = [self.queue pop];
-    while (toast && toast.status == SLToastStatusSkipped)
-        toast = [self.queue pop];
+    SLObjectQueue *queue = self.queue;
+    if (!queue)
+        return nil;
+
+    SLToast *toast = nil;
+
+    @synchronized (queue) {
+        @try {
+            toast = [queue pop];
+            while (toast && toast.status == SLToastStatusSkipped)
+                toast = [queue pop];
+        } @catch (NSException *exception) {
+            NSLog(@"Caught exception when looking for next (unskipped) toast: %@", exception);
+        }
+    }
     return toast;
 }
 
