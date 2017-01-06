@@ -81,18 +81,6 @@
         [_nagLimitTimer invalidate];
     _nagLimitTimer = nil;
 #endif
-    
-    // Just in case consumers retained their toasts and need status updates...
-    
-    for (SLToast *toast in _store)
-    {
-        if (toast.status != SLToastStatusQueued
-            && toast.status != SLToastStatusFinished
-            && toast.status != SLToastStatusSkipped)
-        {
-            toast.status = SLToastStatusUnknown;
-        }
-    }
 }
 
 - (NSUInteger)totalToastCount
@@ -207,22 +195,28 @@
 
     if (self.store.count)
     {
-        NSMutableIndexSet *toastsToRemove = [NSMutableIndexSet indexSet];
+        NSMutableArray<SLToast *> *toastsToRemove = [[NSMutableArray alloc] init];
+
+        //NSMutableIndexSet *toastsToRemove = [NSMutableIndexSet indexSet];
         [self.store enumerateObjectsUsingBlock:^(SLToast * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            if (toast.status != SLToastStatusSkipped)
+            if (toast.status == SLToastStatusSkipped)
             {
-                toast = obj;
-                [toastsToRemove addIndex:idx]; // popping this (unskipped) toast from the queue
+                [toastsToRemove addObject:obj];
+                return;  // keep iterating until we find one that isn't skipped
+            }
+            else
+            {
+                toast = [obj copy];
+                [toastsToRemove addObject:obj];
                 *stop = YES;
                 return;
             }
-            [toastsToRemove addIndex:idx];
         }];
 
         if (!toastsToRemove.count)
             return toast;
 
-        [self.store removeObjectsAtIndexes:toastsToRemove];
+        [self.store removeObjectsInArray:toastsToRemove];
     }
 
     return toast;
